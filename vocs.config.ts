@@ -315,6 +315,10 @@ export default defineConfig({
                 text: 'Providing liquidity',
                 link: '/guide/stablecoin-dex/providing-liquidity',
               },
+              {
+                text: 'Storage savings to benefit your users',
+                link: '/guide/t7-storage-credits',
+              },
             ],
           },
           {

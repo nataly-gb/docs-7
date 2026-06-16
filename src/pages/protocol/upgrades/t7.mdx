@@ -1,17 +1,19 @@
 ---
 title: T7 Network Upgrade
-description: Planned overview for the T7 network upgrade, including gas credits, dynamic base fee behavior, and removal of TIP-20 rewards.
+description: Planned overview for the T7 network upgrade, including storage savings, lower quiet-period fees, and Tempo Token Rewards cleanup.
 ---
 
 # T7 Network Upgrade
 
-T7 is a planned network upgrade focused on lowering fees for work that is expected to expire, lowering the base fee when gas usage is below the target threshold, and removing TIP-20 rewards.
+T7 is a planned network upgrade focused on making real repeat usage cheaper. It introduces storage credits for contracts that create and clear temporary state, lets the network lower fees when usage is quiet, and cleans up Tempo Token Rewards activity that partners should stop building new flows around.
 
-:::info[T7 status]
-T7 is planned but does not have a release yet. The scope and rollout dates may change before activation.
+For partners, the headline is simple: apps with repeat contract workflows can pass meaningful gas savings to returning users, while all users can benefit from lower base fees during low-usage periods.
+
+:::info[Planned upgrade]
+T7 is planned for testnet on June 30, 2026 and mainnet on July 6, 2026. Scope and dates may change before activation.
 :::
 
-## Timeline
+## Release timeline
 
 | Network | Date |
 |---------|------|
@@ -20,26 +22,106 @@ T7 is planned but does not have a release yet. The scope and rollout dates may c
 
 Node operator upgrade guidance will be added when the T7-compatible release is available.
 
-## Planned scope
+## Overview
 
-### Lower fees for things we know will expire
+T7 focuses on four partner-facing changes:
 
-T7 plans to introduce gas credits for protocol surfaces where temporary work is expected to expire.
+- **Reusable storage savings.** Contracts that create storage, clear it, and later create storage again in the same contract can lower the cost of the next eligible storage write.
+- **Savings tied to the right user.** Shared systems such as the StablecoinDEX can keep those savings attached to the maker who earned them, instead of letting the next user spend them by accident.
+- **Lower fees during quiet periods.** T7 replaces the fixed base fee with a bounded dynamic fee that can fall when block gas usage is below target.
+- **Rewards cleanup.** New Tempo Token Rewards opt-ins and distributions stop after activation, while already-accrued rewards remain claimable.
 
-| TIP | Scope |
-|-----|-------|
-| [TIP-1060: Gas Credits Primitive](https://tips.sh/1060) | Core gas credits primitive |
-| [TIP-1064: Gas Credits for DEX](https://tips.sh/1064) | Gas credits for DEX flows |
-| [TIP-1066: Gas Credits for MPP](https://tips.sh/1066) | Gas credits for MPP flows; stretch goal |
+For partners, the main opportunity is to identify workflows with temporary state and decide whether the contract should allocate storage-credit savings per user, payer, maker, or account.
 
-### Lowering the base fee when gas is below certain threshold
+## Why it matters
 
-| TIP | Scope |
-|-----|-------|
-| [TIP-1067: Dynamic Base Fee](https://tips.sh/1067-1) | Dynamic base fee behavior |
+| Partner impact | What changes |
+|----------------|--------------|
+| Active DEX makers can pay much less on repeat order placement | In the merged DEX benchmark, same-maker reuse is about 1.21M gas cheaper after a cancel or full fill. |
+| Returning users can benefit without first-time flows getting worse | Fresh DEX order placement changes by less than 0.5% in the measured bid and ask flows. |
+| Apps can avoid random gas discounts | Shared contracts can track which user earned credits and spend them only for that same user. |
+| All integrators get a simpler low-fee story | The new base fee cap is 40% lower than today's fixed base fee, and quiet periods can be up to 20x cheaper than the cap. |
 
-### Remove TIP-20 Rewards
+## Features
 
-| TIP | Scope |
-|-----|-------|
-| [TIP-1075: Remove TIP-20 Rewards](https://github.com/tempoxyz/tempo/pull/5380) | Remove TIP-20 rewards |
+### Reusable storage savings
+
+Storage credits lower gas for workflows that repeatedly create and clear temporary storage. A contract earns a credit when it clears eligible storage, then can use that credit to reduce the cost of creating eligible storage later.
+
+This is not a blanket gas discount. It matters most when a workflow has a natural lifecycle: create state, clear it, then create more state in the same contract.
+
+### User-attributed DEX savings
+
+The StablecoinDEX uses the same idea but adds user-level accounting. If a maker cancels or fully fills an eligible order, the DEX can keep the reusable order-storage savings attached to that maker. When the same maker places a later eligible order, the DEX can apply those savings.
+
+Read [Storage Savings to Benefit Your Users](/guide/t7-storage-credits) for the contract design pattern and benchmark examples.
+
+### Dynamic base fee
+
+T7 replaces the fixed base fee with a bounded dynamic base fee. The new cap is 40% lower than the current fixed fee, and when block gas usage is below target, the base fee can fall toward a floor that is one twentieth of the cap.
+
+For a simple fee example, a 50,000 gas transfer costs about $0.0006 at the new cap and about $0.00003 at the floor.
+
+| Example transaction | Today's fixed fee | T7 cap | T7 quiet-period floor |
+|---------------------|------------------:|-------:|----------------------:|
+| 50,000 gas transfer | $0.0010 | $0.0006 | $0.00003 |
+| 1,000,000 gas transaction | $0.0200 | $0.0120 | $0.0006 |
+
+At the quiet-period floor, the same transaction is 20x cheaper than the T7 cap and about 33x cheaper than today's fixed fee. The base fee starts at the cap at activation and moves with block usage.
+
+### Tempo Token Rewards cleanup
+
+After T7 activation, new Tempo Token Rewards opt-ins and new reward distributions become no-ops. Already-accrued rewards remain claimable through the existing `claimRewards()` flow.
+
+This change is planned for testnet on June 30, 2026 and mainnet on July 6, 2026. See [Tempo Token Rewards](/protocol/tip20-rewards/overview) if your integration still uses rewards.
+
+## Technical references
+
+| Feature | What changes | Reference |
+|---------|--------------|-----------|
+| Reusable storage savings | Contracts can earn credits when they clear eligible storage and use those credits to lower later storage-creation gas | [Contract storage credits proposal (TIP-1060)](https://github.com/tempoxyz/tempo/pull/4016) |
+| User-attributed DEX savings | The DEX can keep reusable order-storage credits attached to the maker who earned them | [StablecoinDEX order storage credits proposal (TIP-1064)](https://github.com/tempoxyz/tempo/pull/4082) |
+| Dynamic base fee | The base fee can move within a bounded range instead of staying fixed | [Dynamic base fee proposal](https://github.com/tempoxyz/tempo/pull/5153) |
+| Tempo Token Rewards cleanup | New reward opt-ins and distributions stop, while already-accrued rewards remain claimable | [Rewards deprecation proposal](https://github.com/tempoxyz/tempo/pull/5380) |
+
+## Partner benefits
+
+| Partner type | What the planned features can help with |
+|--------------|-----------------------|
+| DEX makers and liquidity providers | Lower gas when a maker cancels or fully fills orders, then places eligible orders later |
+| Shared contract developers | A clear pattern for passing storage savings to the user who earned them |
+| Wallets, checkout teams, and consumer apps | Lower base fees during periods of low network usage |
+| Rewards integrators | Clear migration timing for stopping new Tempo Token Rewards activity |
+| Bridge, vault, and routing teams | Potential savings if their contracts repeatedly clear and recreate user-attributed state; benchmark each workflow before sharing partner-specific claims |
+
+## Benchmark highlights
+
+For DEX order flows, fresh order placement is effectively unchanged while same-maker credit reuse is about 1.21M gas cheaper in the merged benchmark.
+
+| DEX flow | Before | After | Gas change |
+|----------|-------:|------:|-------:|
+| Fresh place bid | 2,595,385 | 2,604,066 | +8,681 (+0.3%) |
+| Fresh place ask | 2,348,185 | 2,356,766 | +8,581 (+0.4%) |
+| Cancel bid, earn reusable savings | 304,741 | 361,184 | +56,443 (+18.5%) |
+| **Same maker reuses savings after cancel** | **2,075,413** | **868,756** | **1,206,657 gas saved (-58.1%)** |
+| Full fill, earn reusable savings | 384,497 | 436,040 | +51,543 (+13.4%) |
+| **Same maker reuses savings after full fill** | **1,828,213** | **621,456** | **1,206,757 gas saved (-66.0%)** |
+
+The credit-earning steps cost more because the DEX records which maker earned the reusable savings. The payoff is the next eligible order from that same maker.
+
+## Compatible SDK releases
+
+T7-compatible SDK releases will be listed here as they ship.
+
+## What operators and integrators should know
+
+Node operators should upgrade to the T7-compatible release before the activation timestamp. Release details will be added when the compatible node release is available.
+
+Before T7 activation, integrators should:
+
+1. Identify flows that create and later clear storage.
+2. Decide whether cleared storage can be attributed to a specific user, maker, payer, or account.
+3. Add user-level accounting where shared contract savings should not be consumed by unrelated users.
+4. Benchmark first-time usage, repeat usage, and cross-user cases before publishing workflow-specific claims.
+5. Update frontend gas estimates, fee quotes, and support docs after T7-compatible releases are available.
+6. Stop building new flows on Tempo Token Rewards; already-accrued rewards remain claimable.

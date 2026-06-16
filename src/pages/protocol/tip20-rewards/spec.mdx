@@ -4,6 +4,10 @@ description: Technical specification for Tempo Token Rewards using reward-per-to
 
 # Tempo Token Rewards Specification
 
+:::warning[Tempo Token Rewards cleanup planned]
+This change is planned for testnet on June 30, 2026 and mainnet on July 6, 2026. After activation, new reward opt-ins and new reward distributions become no-ops. Already-accrued rewards remain claimable through the existing `claimRewards()` flow. See the [network upgrade overview](/protocol/upgrades/t7) for the full timeline and scope.
+:::
+
 ## Abstract
 An opt-in, scalable, pro-rata reward distribution mechanism built into TIP-20 tokens. The system uses a "reward-per-token" accumulator pattern to distribute rewards proportionally to opted-in holders without requiring staking or per-holder iteration. Rewards are distributed instantly; time-based streaming distributions are planned for a future upgrade.
 
